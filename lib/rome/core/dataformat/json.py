@@ -125,7 +125,7 @@ class Encoder(object):
             for field in fields_iterator:
                 field_value = getattr(obj, field)
                 if field in relationships_fields:
-                    self.process_object(field_value)
+                    # self.process_object(field_value)
                     continue
                 if utils.is_novabase(field_value):
                     complex_object[field] = self.process_field(field_value)
