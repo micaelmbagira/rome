@@ -443,6 +443,8 @@ class LazyRelationship():
     def __getattr__(self, item):
         if item not in ["data", "rel", "query", "is_relationship_list", "is_loaded"]:
             self.reload()
+        if item == "__nonzero__" and self.is_relationship_list:
+            return getattr(self.data, "__len__", None)
         return getattr(self.data, item, None)
 
     def __setattr__(self, name, value):
