@@ -252,6 +252,7 @@ class Entity(models.ModelBase, IterableModel, utils.ReloadableRelationMixin):
             already_saved = []
 
         if session is not None:
+            session.add(self)
             return
 
         self.update_foreign_keys()
@@ -281,6 +282,9 @@ class Entity(models.ModelBase, IterableModel, utils.ReloadableRelationMixin):
         candidates = []
 
         # Handle relationships's objects: they may be saved!
+        def is_unmodified(v):
+            return hasattr(relationship_value, "is_relationship_list") and getattr(relationship_value, "is_loaded", False)
+
         for rel_field in self.get_relationship_fields():
             attr = getattr(self, rel_field)
 
@@ -295,13 +299,16 @@ class Entity(models.ModelBase, IterableModel, utils.ReloadableRelationMixin):
                 for rel in corresponding_relationship:
                     if rel.direction in ["MANYTOONE", "ONETOMANY"] and getattr(self, rel.local_object_field) is not None:
                         relationship_value = getattr(self, rel.local_object_field)
-                        if hasattr(relationship_value, "is_relationship_list") and getattr(relationship_value, "is_loaded", False):
-                            relationship_value = relationship_value.data
-                        if relationship_value is not None:
-                            if rel.is_list:
-                                candidates += relationship_value
-                            else:
-                                candidates += [relationship_value]
+                        # if is_unmodified_value(relationship_value):
+                        # relationship_value = relationship_value.data
+                        # if relationship_value is not None:
+                        prefiltered_candidates = []
+                        if rel.is_list:
+                            prefiltered_candidates += relationship_value
+                        else:
+                            prefiltered_candidates += [relationship_value]
+                        filtered_candidates = filter(lambda x: not is_unmodified(x), prefiltered_candidates)
+                        candidates += map(lambda x: getattr(x, "data", x), filtered_candidates)
         # Handle associated objects: they may be saved!
         for associated_object in self.get_associated_objects():
             candidates += [associated_object]

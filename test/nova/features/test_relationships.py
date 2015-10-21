@@ -1,6 +1,6 @@
 __author__ = 'jonathan'
 
-import _fixtures as models
+import test.nova._fixtures as models
 from lib.rome.core.orm.query import Query
 import collections
 import logging
