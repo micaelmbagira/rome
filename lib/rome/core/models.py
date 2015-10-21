@@ -175,12 +175,20 @@ class Entity(models.ModelBase, IterableModel, utils.ReloadableRelationMixin):
                             if hasattr(value, "register_associated_object"):
                                 value.register_associated_object(self)
                 if r.direction in ["ONETOMANY"]:
-                    if key == r.local_object_field and not r.is_list:
-                        if hasattr(value, "get_relationships"):
-                            for r2 in value.get_relationships():
-                                if r2.direction in ["MANYTOONE"]:
-                                    setattr(value, r2.local_fk_field, getattr(self, r2.remote_object_field))
-                                    setattr(value, r2.local_object_field, self)
+                    candidates = value if r.is_list else [value]
+                    filtered_candidates = filter(lambda x: hasattr(x, "get_relationships"), candidates)
+                    for c in filtered_candidates:
+                        for r2 in c.get_relationships():
+                            if r2.direction in ["MANYTOONE"]:
+                                setattr(c, r2.local_fk_field, getattr(self, r2.remote_object_field))
+                                setattr(c, r2.local_object_field, self)
+                    # if key == r.local_object_field and r.is_list:
+                    #
+                    #     if hasattr(value, "get_relationships"):
+                    #         for r2 in value.get_relationships():
+                    #             if r2.direction in ["MANYTOONE"]:
+                    #                 setattr(value, r2.local_fk_field, getattr(self, r2.remote_object_field))
+                    #                 setattr(value, r2.local_object_field, self)
 
     def already_in_database(self):
         return hasattr(self, "id") and (self.id is not None)
