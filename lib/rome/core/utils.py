@@ -423,6 +423,12 @@ class LazyRelationship():
         self.is_relationship_list = self.rel.to_many
         self.query = Query(rel.remote_class)
 
+    def __coerce__(self, other):
+        self.reload()
+        if self.is_relationship_list:
+            return (other, self.data)
+        return self.data.__coerce__(other)
+
     def reload(self):
         def match(x, rel):
             field_name = rel.remote_object_field
