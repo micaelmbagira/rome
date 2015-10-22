@@ -66,6 +66,28 @@ def service_update(context, service_id, values):
     return service_ref
 
 
+def _report_state(service):
+        """Update the state of this service in the datastore."""
+        ctxt = Context("project1", "user1")
+        state_catalog = {}
+        try:
+            report_count = service.service_ref['report_count'] + 1
+            state_catalog['report_count'] = report_count
+
+            service.service_ref = service_update(ctxt,
+                    service.service_ref, state_catalog)
+
+            # TODO(termie): make this pattern be more elegant.
+            if getattr(service, 'model_disconnected', False):
+                service.model_disconnected = False
+                LOG.error('Recovered model server connection!')
+
+        # TODO(vish): this should probably only catch connection errors
+        except Exception:  # pylint: disable=W0702
+            if not getattr(service, 'model_disconnected', False):
+                service.model_disconnected = True
+                LOG.exception('model server went away')
+
 class Context(object):
     def __init__(self, project_id, user_id):
         self.project_id = project_id
@@ -123,7 +145,7 @@ def test_service_update():
         assert compute_node_from_db.service.id == corresponding_compute_node.service.id
         assert compute_node_from_db.service.report_count == corresponding_compute_node.service.report_count+1
 
-
+    report_count = service_from_db['report_count'] + 1
 
 if __name__ == '__main__':
 
@@ -132,7 +154,3 @@ if __name__ == '__main__':
     context = Context("project1", "user1")
 
     test_service_update()
-
-
-
-

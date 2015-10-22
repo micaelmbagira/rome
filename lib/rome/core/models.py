@@ -312,7 +312,8 @@ class Entity(models.ModelBase, IterableModel, utils.ReloadableRelationMixin):
                         # if relationship_value is not None:
                         prefiltered_candidates = []
                         if rel.is_list:
-                            prefiltered_candidates += relationship_value
+                            for each_value in relationship_value:
+                                prefiltered_candidates += [each_value]
                         else:
                             prefiltered_candidates += [relationship_value]
                         filtered_candidates = filter(lambda x: not is_unmodified(x), prefiltered_candidates)
