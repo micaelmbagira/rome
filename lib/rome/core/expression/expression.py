@@ -191,12 +191,16 @@ class BooleanExpression(object):
         for key in values_dict:
             value = values_dict[key]
             if key.startswith("id_"):
+                if hasattr(value, "id"):
+                    value = getattr(value, "id")
                 value = int(value)
             final_values_dict[key] = value
         for key in values_dict:
             if key in self.variable_substitution_dict:
                 value = values_dict[key]
                 if key.startswith("id_"):
+                    if hasattr(value, "id"):
+                        value = getattr(value, "id")
                     value = int(value)
                 final_values_dict[self.variable_substitution_dict[key]] = value
         for expression in self.exps:
