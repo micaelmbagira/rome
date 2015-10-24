@@ -120,12 +120,16 @@ class Encoder(object):
             fields_iterator = obj
 
         complex_object = {}
+        relationships_fields = map(lambda x: x.local_object_field, obj.get_relationships())
         if fields_iterator is not None:
             for field in fields_iterator:
                 field_value = getattr(obj, field)
+                if field in relationships_fields:
+                    self.process_object(field_value)
+                    continue
                 if utils.is_novabase(field_value):
                     complex_object[field] = self.process_field(field_value)
-                elif isinstance(field_value, list) or hasattr(field_value, "is_relationship_list"):
+                elif isinstance(field_value, list): #or hasattr(field_value, "is_relationship_list"):
                     field_list = []
                     for item in field_value:
                         field_list += [self.process_field(item)]
@@ -244,7 +248,7 @@ class Encoder(object):
 
     def process_object(self, obj, skip_reccursive_call=True):
         """Apply the best simplification strategy to the given object."""
-
+        from lib.rome.core.lazy import LazyValue
         should_skip = self.already_processed(obj) or skip_reccursive_call
 
         if utils.is_novabase(obj):

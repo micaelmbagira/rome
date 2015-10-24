@@ -16,7 +16,6 @@ from oslo.db.sqlalchemy import models
 import utils
 
 
-
 def starts_with_uppercase(name):
     if name is None or len(name) == 0:
         return False
@@ -108,6 +107,101 @@ class Entity(models.ModelBase, IterableModel, utils.ReloadableRelationMixin):
     def __init__(self):
         self._session = None
         self.rome_version_number = -1
+
+    def __setitem__(self, key, value):
+        """ This function overrides the default __setitem_ provided by sqlalchemy model class, in order to prevent
+        triggering of events that loads relationships, when a relationship field is set. Instead, the relationship
+        is handle by this method.
+
+        :param key: a string value representing the key
+        :param value: an object
+        :return: nothing
+        """
+        self.__dict__[key] = value
+        if self.is_relationship_field(key):
+            self.handle_relationship_change_event(key, value)
+
+    def __setattr__(self, key, value):
+        """ This function overrides the default __setattr_ provided by sqlalchemy model class, in order to prevent
+        triggering of events that loads relationships, when a relationship field is set. Instead, the relationship
+        is handle by this method.
+
+        :param key: a string value representing the key
+        :param value: an object
+        :return: nothing
+        """
+        self.__dict__[key] = value
+        if self.is_relationship_field(key):
+            self.handle_relationship_change_event(key, value)
+
+    def is_relationship_field(self, key):
+        if not hasattr(self, "_relation_str"):
+            # fields = map(lambda x: x.local_object_field, self.get_relationships())
+            fields = self.get_relationship_fields(with_indirect_field=True)
+            self.__dict__["_relation_str"] = fields
+        return key in self.__dict__["_relation_str"]
+
+    def handle_relationship_change_event(self, key, value):
+        relationships = filter(lambda x: key in [x.local_object_field, x.local_fk_field], self.get_relationships())
+        for r in relationships:
+            old_value = getattr(self, key, None)
+            if key == r.local_fk_field:
+                if r.direction in ["MANYTOONE"]:
+                    self.load_relationships(filter_keys=[r.local_object_field])
+                else:
+                # if value is None:
+                    try:
+                        v = getattr(getattr(self, r.local_object_field), r.remote_object_field)
+                        self.__dict__[key] = v
+                    except:
+                        pass
+                    # toto = self.__dict__
+                    # toto[key] = value
+                    # v =
+                    # models.ModelBase.__setattr__(self, key, value)
+                # else:
+                    self.load_relationships(filter_keys=[r.local_object_field])
+            else:
+                if r.direction in ["MANYTOONE"]:
+                    if key == r.local_object_field and not r.is_list:
+                        self.__dict__[r.local_fk_field] = getattr(value, r.remote_object_field, None)
+                        if hasattr(value, "get_relationships"):
+                            for r2 in value.get_relationships():
+                                if r2.remote_object_tablename == self.__tablename__:
+                                    if r2.direction in ["ONETOMANY"]:
+                                        existing_value = getattr(value, r2.local_object_field, None)
+                                        if existing_value is None or hasattr(existing_value, "is_list"):
+                                            setattr(value, r2.local_object_field, self)
+                if r.direction in ["ONETOMANY"]:
+                    if key == r.local_object_field and not r.is_list:
+                        if hasattr(value, "get_relationships"):
+                            for r2 in value.get_relationships():
+                                if r2.direction in ["MANYTOONE"]:
+                                    setattr(value, r2.local_fk_field, getattr(self, r2.remote_object_field))
+                                    existing_value = getattr(value, r2.local_object_field, None)
+                                    if existing_value is not None:
+                                        if hasattr(existing_value, "is_list"):
+                                            setattr(value, r2.local_object_field, self)
+                                        else:
+                                            pass
+                                    else:
+                                        setattr(value, r2.local_object_field, self)
+                                    # print(r2)
+                #
+                # if old_value is not None and r.direction != "MANYTOONE":
+                #     # value.__dict__[r.remote_object_field] = None
+                #     if r.is_list:
+                #         for o in value:
+                #             setattr(o, r.remote_object_field, None)
+                #     else:
+                #         setattr(value, r.remote_object_field, None)
+                # if value is not None and r.direction != "MANYTOONE":
+                #     if r.is_list:
+                #         for o in value:
+                #             setattr(o, r.remote_object_field, getattr(self, r.local_fk_field))
+                #     else:
+                #         setattr(value, r.remote_object_field, getattr(self, r.local_fk_field))
+                #     # value.__dict__[r.remote_object_field] = getattr(self, r.local_fk_field)
 
     def already_in_database(self):
         return hasattr(self, "id") and (self.id is not None)
@@ -202,6 +296,30 @@ class Entity(models.ModelBase, IterableModel, utils.ReloadableRelationMixin):
         object_converter = get_encoder(request_uuid)
         object_converter.simplify(self)
 
+        from utils import LazyRelationship
+        from lazy import LazyValue
+        for rel_field in self.get_relationship_fields():
+            attr = getattr(self, rel_field)
+            candidates = []
+            # if "InstrumentedList" in str(type(attr)):
+            #     candidates = attr
+            # elif type(attr) is LazyRelationship and attr.is_loaded():
+            #     # candidates += attr.data if attr.is_relationship_list else [attr.data]
+            # elif type(attr) is Entity: #is not None:
+            #     candidates = [attr]
+            if hasattr(attr, "wrapped_value"):
+                candidates = attr.wrapped_value
+
+            try:
+                for c in candidates:
+                    o = c
+                    if hasattr(o, "wrapped_value"):
+                        o = o.wrapped_value
+                    object_converter.simplify(o)
+            except:
+                print(candidates)
+                pass
+
         saving_candidates = object_converter.complex_cache
 
         if no_nested_save:
@@ -277,7 +395,7 @@ class Entity(models.ModelBase, IterableModel, utils.ReloadableRelationMixin):
                 current_object["created_at"] = object_converter_datetime.simplify(datetime.datetime.utcnow())
             current_object["updated_at"] = object_converter_datetime.simplify(datetime.datetime.utcnow())
 
-            logging.debug("starting the storage of %s" % (current_object))
+            logging.debug("starting the storage of %s (uuid=%s, session=%s)" % (current_object, request_uuid, session))
 
             try:
                 local_object_converter = get_encoder(request_uuid)
