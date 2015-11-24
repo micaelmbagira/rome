@@ -10,9 +10,10 @@ import sys
 import datetime
 import logging
 
+from sqlalchemy import Column, DateTime, Index, Integer, BigInteger, Enum, String, schema, Boolean, Text, Float, ForeignKey
 from lib.rome.core.dataformat import get_decoder, get_encoder
 import lib.rome.driver.database_driver as database_driver
-from oslo.db.sqlalchemy import models
+from oslo_db.sqlalchemy import models
 import utils
 
 
@@ -171,10 +172,10 @@ class Entity(models.ModelBase, IterableModel, utils.ReloadableRelationMixin):
         # if not skip_session and getattr(self, "_session", None) is not None:
         #     self._session.add(self)
         # else:
-        #     self.save(request_uuid=request_uuid)
         return self
 
     def save(self, session=None, request_uuid=uuid.uuid1(), force=False, no_nested_save=False, increase_version=True):
+        #     self.save(request_uuid=request_uuid)
 
         # if getattr(self, "_session", session) is not None:
         #     if not force:
@@ -199,8 +200,8 @@ class Entity(models.ModelBase, IterableModel, utils.ReloadableRelationMixin):
         converted into "JSON like" representation, and nested objects are
         extracted. It results in a list of object that will be stored in the
         database."""
-        object_converter = get_encoder(request_uuid)
         object_converter.simplify(self)
+        object_converter = get_encoder(request_uuid)
 
         saving_candidates = object_converter.complex_cache
 
@@ -302,3 +303,46 @@ class Entity(models.ModelBase, IterableModel, utils.ReloadableRelationMixin):
             logging.debug("finished the storage of %s" % (current_object))
 
         return self
+
+
+
+    """Base class for Glance Models."""
+
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
+    __table_initialized__ = False
+    __protected_attributes__ = set([
+        "created_at", "updated_at", "deleted_at", "deleted"])
+
+    created_at = Column(DateTime, default=lambda: timeutils.utcnow(),
+                        nullable=False)
+    # TODO(vsergeyev): Column `updated_at` have no default value in
+    #                  openstack common code. We should decide, is this value
+    #                  required and make changes in oslo (if required) or
+    #                  in glance (if not).
+    updated_at = Column(DateTime, default=lambda: timeutils.utcnow(),
+                        nullable=True, onupdate=lambda: timeutils.utcnow())
+    # TODO(boris-42): Use SoftDeleteMixin instead of deleted Column after
+    #                 migration that provides UniqueConstraints and change
+    #                 type of this column.
+    deleted_at = Column(DateTime)
+    deleted = Column(Boolean, nullable=False, default=False)
+
+    def keys(self):
+        return self.__dict__.keys()
+
+    def values(self):
+        return self.__dict__.values()
+
+    def items(self):
+        return self.__dict__.items()
+
+    def to_dict(self):
+        d = self.__dict__.copy()
+        # NOTE(flaper87): Remove
+        # private state instance
+        # It is not serializable
+        # and causes CircularReference
+        d.pop("_sa_instance_state")
+        return d
+
+
