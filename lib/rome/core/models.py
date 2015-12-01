@@ -200,8 +200,8 @@ class Entity(models.ModelBase, IterableModel, utils.ReloadableRelationMixin):
         converted into "JSON like" representation, and nested objects are
         extracted. It results in a list of object that will be stored in the
         database."""
-        object_converter.simplify(self)
         object_converter = get_encoder(request_uuid)
+        object_converter.simplify(self)
 
         saving_candidates = object_converter.complex_cache
 
