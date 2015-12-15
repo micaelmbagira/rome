@@ -116,6 +116,10 @@ class Entity(models.ModelBase, IterableModel, utils.ReloadableRelationMixin):
     def delete(self, session=None):
         # <HARD DELETE IMPLEMENTATION>
         if session is not None:
+            # In Glance registry Unit testing v2 'test_delete_image_response' requires the following information.
+            self.deleted = 1
+            object_converter_datetime = get_encoder()
+            self.deleted_at = object_converter_datetime.simplify(datetime.datetime.utcnow())
             session.delete(self)
             return
         database_driver.get_driver().remove_key(self.__tablename__, self.id)
