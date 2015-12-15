@@ -129,6 +129,7 @@ class Query:
                     self._session.add(each)
             except:
                 pass
+        return len(result)
 
     def distinct(self):
         return list(set(self.all()))
