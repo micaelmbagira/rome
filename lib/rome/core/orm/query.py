@@ -86,6 +86,18 @@ class Query:
         else:
             None
 
+    def limit(self, limit):
+        rows = self.all()
+        print rows
+        if len(rows) > 0:
+            if len(rows) < limit:
+                return rows
+            else:
+                return rows[:limit]
+        else:
+            None
+
+
     def exists(self):
         return self.first() is not None
 
