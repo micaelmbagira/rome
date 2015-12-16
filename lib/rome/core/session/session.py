@@ -42,12 +42,22 @@ class Session(object):
 
     def add(self, *objs):
         for obj in objs:
-            if obj not in self.session_objects_add:
+            if hasattr(obj, "is_loaded"):
+                if obj.is_loaded:
+                    obj = obj.data
+                else:
+                    continue
+            if not self.already_in(obj, self.session_objects_add):
                 self.session_objects_add += [obj]
 
     def delete(self, *objs):
         for obj in objs:
-            if obj not in self.session_objects_delete:
+            if hasattr(obj, "is_loaded"):
+                if obj.is_loaded:
+                    obj = obj.data
+                else:
+                    continue
+            if not self.already_in(obj, self.session_objects_delete):
                 self.session_objects_delete += [obj]
 
     def query(self, *entities, **kwargs):
