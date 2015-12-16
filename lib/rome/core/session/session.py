@@ -40,6 +40,13 @@ class Session(object):
         self.dlm = ClusterLock()
         self.acquired_locks = []
 
+    def already_in(self, obj, objects):
+        if obj in objects:
+            return True
+        obj_signature = "%s" % (obj)
+        existing_signature = map(lambda x: "%s" % (x), objects)
+        return obj_signature in existing_signature
+
     def add(self, *objs):
         for obj in objs:
             if hasattr(obj, "is_loaded"):
