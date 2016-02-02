@@ -29,12 +29,15 @@ class Query:
         self._criterions = []
         self._funcs = []
         self._hints = []
+        self._limit = None
         self._session = None
         base_model = None
         if "base_model" in kwargs:
             base_model = kwargs.get("base_model")
         if "session" in kwargs:
             self._session = kwargs.get("session")
+        if "limit" in kwargs:
+            self._limit = kwargs.get("limit")
         for arg in args:
             if ("count" in str(arg) or "sum" in str(arg)) and "DeclarativeMeta" not in str(type(arg)):
                 function_name = re.sub("\(.*\)", "", str(arg))
@@ -72,6 +75,10 @@ class Query:
 
     def all(self):
         result_list = construct_rows(self._models, self._criterions, self._hints, session=self._session)
+        # TODO QuickFix Should use construct_rows function to cut unnecessary db computing
+        if self._limit is not None:
+            if len(result_list) > self._limit:
+                result_list = result_list[:self._limit]
         result = []
         for r in result_list:
             ok = True
@@ -83,17 +90,6 @@ class Query:
         rows = self.all()
         if len(rows) > 0:
             return rows[0]
-        else:
-            None
-
-    def limit(self, limit):
-        rows = self.all()
-        print rows
-        if len(rows) > 0:
-            if len(rows) < limit:
-                return rows
-            else:
-                return rows[:limit]
         else:
             None
 
@@ -148,6 +144,14 @@ class Query:
         except:
             pass
 
+    def limit(self, limit):
+        args = self._models + self._funcs + self._criterions + self._hints + self._initial_models
+        kwargs = {}
+        if self._session is not None:
+            kwargs["session"] = self._session
+        kwargs["limit"] = limit
+        return Query(*args, **kwargs)
+
     def filter_by(self, **kwargs):
         _func = self._funcs[:]
         _criterions = self._criterions[:]
@@ -168,6 +172,8 @@ class Query:
         kwargs = {}
         if self._session is not None:
             kwargs["session"] = self._session
+        if self._limit is not None:
+            kwargs["limit"] = self._limit
         return Query(*args, **kwargs)
 
     def filter_dict(self, filters):
@@ -185,6 +191,8 @@ class Query:
         kwargs = {}
         if self._session is not None:
             kwargs["session"] = self._session
+        if self._limit is not None:
+            kwargs["limit"] = self._limit
         return Query(*args, **kwargs)
 
     def join(self, *args, **kwargs):
@@ -217,6 +225,8 @@ class Query:
         kwargs = {}
         if self._session is not None:
             kwargs["session"] = self._session
+        if self._limit is not None:
+            kwargs["limit"] = self._limit
         return Query(*args, **kwargs)
 
     def outerjoin(self, *args, **kwargs):
@@ -232,6 +242,8 @@ class Query:
         kwargs = {}
         if self._session is not None:
             kwargs["session"] = self._session
+        if self._limit is not None:
+            kwargs["limit"] = self._limit
         return Query(*args, **kwargs)
 
     def order_by(self, *criterion):
@@ -244,6 +256,8 @@ class Query:
         kwargs = {}
         if self._session is not None:
             kwargs["session"] = self._session
+        if self._limit is not None:
+            kwargs["limit"] = self._limit
         return Query(*args, **kwargs)
 
     def with_lockmode(self, mode):
@@ -259,6 +273,8 @@ class Query:
         kwargs = {}
         if self._session is not None:
             kwargs["session"] = self._session
+        if self._limit is not None:
+            kwargs["limit"] = self._limit
         return Query(*args, **kwargs).all()
 
     def __iter__(self):
