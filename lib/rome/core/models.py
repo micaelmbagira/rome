@@ -12,7 +12,7 @@ import logging
 
 from lib.rome.core.dataformat import get_decoder, get_encoder
 import lib.rome.driver.database_driver as database_driver
-from oslo.db.sqlalchemy import models
+from oslo_db.sqlalchemy import models
 import utils
 
 
